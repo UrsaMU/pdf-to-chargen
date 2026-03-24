@@ -1,0 +1,36 @@
+{
+  "name": "@ursamu/chargen-tools",
+  "version": "0.1.0",
+  "description": "CLI tools for UrsaMU chargen: PDF→text conversion and LangGraph-powered plugin extraction.",
+  "license": "MIT",
+  "exports": {
+    ".": "./mod.ts",
+    "./pdf-to-text": "./pdf-to-text.ts",
+    "./chargen-extract": "./chargen-extract.ts"
+  },
+  "publish": {
+    "include": ["*.ts", "deno.json", "README.md", "LICENSE", ".env.example", "docs/"]
+  },
+  "tasks": {
+    "chargen": "deno run --allow-all chargen-extract.ts",
+    "pdf": "deno run --allow-read --allow-write --allow-run pdf-to-text.ts"
+  },
+  "imports": {
+    "@std/fs/walk":                  "jsr:@std/fs@^0.224.0/walk",
+    "@std/fs/ensure-dir":            "jsr:@std/fs@^0.224.0/ensure-dir",
+    "@std/fs/exists":                "jsr:@std/fs@^0.224.0/exists",
+    "@std/path":                     "jsr:@std/path@^0.224.0",
+    "@std/dotenv/load":              "jsr:@std/dotenv@^0.224.0/load",
+    "@langchain/anthropic":          "npm:@langchain/anthropic@^0.3.0",
+    "@langchain/openai":             "npm:@langchain/openai@^0.3.0",
+    "@langchain/langgraph":          "npm:@langchain/langgraph@^0.2.0",
+    "@langchain/langgraph/prebuilt": "npm:@langchain/langgraph@^0.2.0/prebuilt",
+    "@langchain/core":                                    "npm:@langchain/core@^0.3.0",
+    "@langchain/core/messages":                          "npm:@langchain/core@^0.3.0/messages",
+    "@langchain/core/language_models/chat_models":       "npm:@langchain/core@^0.3.0/language_models/chat_models",
+    "zod":                           "npm:zod@^3.23.0"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window"]
+  }
+}
