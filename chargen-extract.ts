@@ -71,16 +71,35 @@ const MAX_CHARS = parseInt(cfg("--max-chars", "CHARGEN_MAX_CHARS", "150000"), 10
 // ─── State ───────────────────────────────────────────────────────────────────
 
 const ChargenState = Annotation.Root({
-  textDir:        Annotation<string>({ reducer: (_p, n) => n, default: () => TEXT_DIR }),
-  outputDir:      Annotation<string>({ reducer: (_p, n) => n, default: () => OUTPUT }),
-  systemName:     Annotation<string>({ reducer: (_p, n) => n, default: () => SYS_NAME }),
-  textContent:    Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
-  statSchema:     Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
-  gmContext:      Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
-  designPlan:     Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
-  pluginFiles:    Annotation<Record<string, string>>({ reducer: (_p, n) => n, default: () => ({}) }),
-  auditIssues:    Annotation<string[]>({ reducer: (_p, n) => n, default: () => [] }),
-  retryCount:     Annotation<number>({ reducer: (_p, n) => n, default: () => 0 }),
+  // Input
+  textDir:           Annotation<string>({ reducer: (_p, n) => n, default: () => TEXT_DIR }),
+  outputDir:         Annotation<string>({ reducer: (_p, n) => n, default: () => OUTPUT }),
+  systemName:        Annotation<string>({ reducer: (_p, n) => n, default: () => SYS_NAME }),
+
+  // Phase 1 — raw text
+  textContent:       Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+
+  // Phase 2 — structure analysis
+  documentStructure: Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+  extractionPlan:    Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+
+  // Phase 2 — targeted extraction
+  exAttributes:      Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+  exAbilities:       Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+  exResources:       Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+  exArchetypes:      Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+  exGmContext:       Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+
+  // Phase 2 — aggregated
+  crossRefNotes:     Annotation<string[]>({ reducer: (_p, n) => n, default: () => [] }),
+  statSchema:        Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+  gmContext:         Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+
+  // Phase 3 — design + generation
+  designPlan:        Annotation<string>({ reducer: (_p, n) => n, default: () => "" }),
+  pluginFiles:       Annotation<Record<string, string>>({ reducer: (_p, n) => n, default: () => ({}) }),
+  auditIssues:       Annotation<string[]>({ reducer: (_p, n) => n, default: () => [] }),
+  retryCount:        Annotation<number>({ reducer: (_p, n) => n, default: () => 0 }),
 });
 
 type State = typeof ChargenState.State;
@@ -121,28 +140,89 @@ async function llm(system: string, human: string): Promise<string> {
 
 // ─── Prompts ─────────────────────────────────────────────────────────────────
 
-const EXTRACT_SYSTEM = `You are extracting RPG game mechanics from rulebook text.
-Output two sections separated by "---GM_CONTEXT---":
+const ANALYZE_STRUCTURE_SYSTEM = `You are analyzing the structure of an RPG rulebook.
+Read the provided text and output a JSON object with this exact shape:
+{
+  "sections": [
+    { "title": "string", "approximate_position": "early|middle|late", "categories": ["stats"|"abilities"|"resources"|"archetypes"|"gm_context"] }
+  ],
+  "extraction_plan": {
+    "stats": "which sections contain attributes, skills, derived stats — one sentence",
+    "abilities": "which sections contain powers, qualities, merits — one sentence",
+    "resources": "which sections contain chargen budgets, karma, priorities — one sentence",
+    "archetypes": "which sections contain metatypes, races, playbooks — one sentence",
+    "gm_context": "which sections contain dice rules, moves, tone — one sentence"
+  }
+}
+Output valid JSON only, no prose.`;
 
-Section 1 — STAT SCHEMA (markdown tables):
-- Attributes table (Name | Min | Max | Notes)
-- Skills table (Name | Linked Attribute | Max | Notes)
-- Special Abilities section (category, examples, selection method)
-- Derived Stats table (Name | Formula)
-- Resource Pools table (Name | Total | Purpose)
-- Metatypes/Archetypes table (Name | Stat Modifiers | Notes)
+const EXTRACT_STATS_SYSTEM = `You are extracting numeric stat information from an RPG rulebook.
+Focus only on: attributes with numeric ranges, skill lists with linked attributes, derived stat formulas.
+Output markdown tables:
 
-Section 2 — GM CONTEXT:
-- Dice system description
-- Full success threshold (number)
-- Partial success threshold (number)
-- Core rules prompt (≤150 words for LLM injection)
-- Adjudication hint (fiction-first guidance)
-- Hard moves list (3-5 examples)
-- Soft moves list (3-5 examples)
-- Miss consequence hint
+### Attributes
+| Name | Min | Max | Notes |
 
-Be comprehensive. Extract every stat, skill, and ability you find.`;
+### Skills
+| Name | Linked Attribute | Max at Chargen | Specializations? | Notes |
+
+### Derived Stats
+| Name | Formula | Notes |
+
+Be exhaustive — list every attribute and skill you find.`;
+
+const EXTRACT_ABILITIES_SYSTEM = `You are extracting special abilities from an RPG rulebook.
+Focus only on: powers, qualities, merits, edges, gifts, adept powers, flaws, disadvantages — discrete character options.
+Output markdown:
+
+### Special Abilities
+| Category | Examples | Selection Method (buy/pick/roll) | Notes |
+
+List every ability category you find with representative examples.`;
+
+const EXTRACT_RESOURCES_SYSTEM = `You are extracting resource economy information from an RPG rulebook.
+Focus only on: chargen point pools, karma budgets, priority tables, BP/XP/PP totals, advancement costs.
+Output markdown:
+
+### Resource Pools (chargen)
+| Name | Total Available | Spend Targets | Notes |
+
+### Advancement Costs
+| Improvement | Cost | Notes |
+
+Be exhaustive. List every pool and every advancement cost you find.`;
+
+const EXTRACT_ARCHETYPES_SYSTEM = `You are extracting character archetypes from an RPG rulebook.
+Focus only on: metatypes, races, archetypes, playbooks, classes — character type options.
+Output markdown:
+
+### Metatypes / Archetypes
+| Name | Stat Modifiers | Special Rules | Unlocks/Restricts |
+
+List every archetype option you find.`;
+
+const EXTRACT_GM_CONTEXT_SYSTEM = `You are extracting GM narrative context from an RPG rulebook.
+Focus only on: dice system, success thresholds, GM moves, tone, genre, fiction-first language.
+Output in this exact format:
+
+**Dice system:** <description>
+**Full success threshold:** <number or descriptor>
+**Partial success threshold:** <number or descriptor>
+
+**Core rules prompt (≤150 words):**
+<distilled paragraph for GM system prompt injection>
+
+**Adjudication hint:**
+<how the GM should approach rolling — fiction-first? move-based?>
+
+**Hard moves (3–5):**
+- <example>
+
+**Soft moves (3–5):**
+- <example>
+
+**Miss consequence hint:**
+<what a miss means narratively>`;
 
 const DESIGN_SYSTEM = `You are designing a UrsaMU chargen plugin following the ursamu-dev standard.
 
@@ -211,20 +291,151 @@ async function readFiles(state: State): Promise<Partial<State>> {
   return { textContent: chunks.join("") };
 }
 
-async function extractMechanics(state: State): Promise<Partial<State>> {
-  console.log("\n[chargen-extract] Extracting mechanics via Claude...");
+async function analyzeStructure(state: State): Promise<Partial<State>> {
+  console.log("\n[chargen-extract] Analyzing document structure...");
+  // Use first 20k chars (table of contents + early chapters)
+  const sample = state.textContent.slice(0, 20000);
   const raw = await llm(
-    EXTRACT_SYSTEM,
-    `Game system: ${state.systemName}\n\nRulebook text:\n${state.textContent}`,
+    ANALYZE_STRUCTURE_SYSTEM,
+    `Game system: ${state.systemName}\n\nRulebook sample (first 20k chars):\n${sample}`,
   );
 
-  const sep = raw.indexOf("---GM_CONTEXT---");
-  const statSchema = sep === -1 ? raw : raw.slice(0, sep).trim();
-  const gmContext  = sep === -1 ? "" : raw.slice(sep + "---GM_CONTEXT---".length).trim();
+  // Extract JSON — strip possible code fences
+  const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]+?)\s*```/) ?? [null, raw];
+  const jsonStr = jsonMatch[1].trim();
 
-  console.log("  ✓ Stat schema extracted");
-  console.log("  ✓ GM narrative context extracted");
-  return { statSchema, gmContext };
+  let parsed: { sections?: unknown[]; extraction_plan?: Record<string, string> };
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    parsed = { sections: [], extraction_plan: {} };
+  }
+
+  const plan = Object.entries(parsed.extraction_plan ?? {})
+    .map(([k, v]) => `${k}: ${v}`)
+    .join("\n");
+
+  console.log(`  ✓ Found ${(parsed.sections ?? []).length} section(s)`);
+  return { documentStructure: jsonStr, extractionPlan: plan };
+}
+
+async function extractStats(state: State): Promise<Partial<State>> {
+  console.log("\n[chargen-extract] Extracting stats & skills...");
+  const hint = state.extractionPlan.split("\n").find((l) => l.startsWith("stats:")) ?? "";
+  const result = await llm(
+    EXTRACT_STATS_SYSTEM,
+    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook text:\n${state.textContent}`,
+  );
+  console.log("  ✓ Attributes, skills, derived stats extracted");
+  return { exAttributes: result };
+}
+
+async function extractAbilities(state: State): Promise<Partial<State>> {
+  console.log("\n[chargen-extract] Extracting special abilities...");
+  const hint = state.extractionPlan.split("\n").find((l) => l.startsWith("abilities:")) ?? "";
+  const result = await llm(
+    EXTRACT_ABILITIES_SYSTEM,
+    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook text:\n${state.textContent}`,
+  );
+  console.log("  ✓ Powers, qualities, merits extracted");
+  return { exAbilities: result };
+}
+
+async function extractResources(state: State): Promise<Partial<State>> {
+  console.log("\n[chargen-extract] Extracting resource pools...");
+  const hint = state.extractionPlan.split("\n").find((l) => l.startsWith("resources:")) ?? "";
+  const result = await llm(
+    EXTRACT_RESOURCES_SYSTEM,
+    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook text:\n${state.textContent}`,
+  );
+  console.log("  ✓ Budgets, pools, advancement costs extracted");
+  return { exResources: result };
+}
+
+async function extractArchetypes(state: State): Promise<Partial<State>> {
+  console.log("\n[chargen-extract] Extracting archetypes...");
+  const hint = state.extractionPlan.split("\n").find((l) => l.startsWith("archetypes:")) ?? "";
+  const result = await llm(
+    EXTRACT_ARCHETYPES_SYSTEM,
+    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook text:\n${state.textContent}`,
+  );
+  console.log("  ✓ Metatypes, archetypes, playbooks extracted");
+  return { exArchetypes: result };
+}
+
+async function extractGmContext(state: State): Promise<Partial<State>> {
+  console.log("\n[chargen-extract] Extracting GM narrative context...");
+  const hint = state.extractionPlan.split("\n").find((l) => l.startsWith("gm_context:")) ?? "";
+  const result = await llm(
+    EXTRACT_GM_CONTEXT_SYSTEM,
+    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook text:\n${state.textContent}`,
+  );
+  console.log("  ✓ Dice system, moves, tone extracted");
+  return { exGmContext: result };
+}
+
+async function crossReference(state: State): Promise<Partial<State>> {
+  console.log("\n[chargen-extract] Cross-referencing extracted data...");
+  const raw = await llm(
+    `You are validating consistency across RPG mechanic extractions.
+Check these issues and return a JSON array of warning strings (empty array if none):
+1. Skills that reference attribute names not in the Attributes table
+2. Derived stat formulas that reference attribute names not in the Attributes table
+3. Archetype stat modifiers that reference stat names not in the Attributes table
+4. Obvious omissions (e.g. skills table present but no attributes, or vice versa)
+Return: ["warning1", "warning2"] or []`,
+    `Game system: ${state.systemName}
+
+Attributes/Skills:
+${state.exAttributes}
+
+Abilities:
+${state.exAbilities}
+
+Resources:
+${state.exResources}
+
+Archetypes:
+${state.exArchetypes}`,
+  );
+
+  const jsonMatch = raw.match(/\[[\s\S]*\]/) ?? [null, "[]"];
+  let notes: string[] = [];
+  try {
+    notes = JSON.parse(jsonMatch[0] ?? "[]");
+  } catch {
+    notes = [];
+  }
+
+  if (notes.length > 0) {
+    console.log(`  ⚠ ${notes.length} consistency warning(s)`);
+    notes.forEach((n) => console.log(`    - ${n}`));
+  } else {
+    console.log("  ✓ No consistency issues");
+  }
+  return { crossRefNotes: notes };
+}
+
+async function renderSchema(state: State): Promise<Partial<State>> {
+  console.log("\n[chargen-extract] Rendering final schema...");
+  const statSchema = [
+    `## Mechanics Schema: ${state.systemName}`,
+    "",
+    state.exAttributes,
+    "",
+    state.exAbilities,
+    "",
+    state.exResources,
+    "",
+    state.exArchetypes,
+  ].join("\n").trim();
+
+  const warnings = state.crossRefNotes.length > 0
+    ? `\n\n### Cross-reference warnings\n${state.crossRefNotes.map((n) => `- ${n}`).join("\n")}`
+    : "";
+
+  console.log("  ✓ Schema rendered");
+  return { statSchema: statSchema + warnings, gmContext: state.exGmContext };
 }
 
 async function confirmSchema(state: State): Promise<Partial<State>> {
@@ -423,29 +634,43 @@ async function writeFiles(state: State): Promise<Partial<State>> {
 // ─── Graph ───────────────────────────────────────────────────────────────────
 
 const graph = new StateGraph(ChargenState)
-  .addNode("read_files",     readFiles)
-  .addNode("extract",        extractMechanics)
-  .addNode("confirm_schema", confirmSchema)
-  .addNode("design",         buildDesignPlan)
-  .addNode("confirm_design", confirmDesign)
-  .addNode("generate",       generatePlugin)
-  .addNode("audit",          auditPlugin)
-  .addNode("confirm_audit",  confirmAudit)
-  .addNode("write_files",    writeFiles)
-  .addEdge(START,             "read_files")
-  .addEdge("read_files",      "extract")
-  .addEdge("extract",         "confirm_schema")
-  .addEdge("confirm_schema",  "design")
-  .addEdge("design",          "confirm_design")
-  .addEdge("confirm_design",  "generate")
-  .addEdge("generate",        "audit")
+  .addNode("read_files",        readFiles)
+  .addNode("analyze_structure", analyzeStructure)
+  .addNode("extract_stats",     extractStats)
+  .addNode("extract_abilities", extractAbilities)
+  .addNode("extract_resources", extractResources)
+  .addNode("extract_archetypes",extractArchetypes)
+  .addNode("extract_gm_context",extractGmContext)
+  .addNode("cross_reference",   crossReference)
+  .addNode("render_schema",     renderSchema)
+  .addNode("confirm_schema",    confirmSchema)
+  .addNode("design",            buildDesignPlan)
+  .addNode("confirm_design",    confirmDesign)
+  .addNode("generate",          generatePlugin)
+  .addNode("audit",             auditPlugin)
+  .addNode("confirm_audit",     confirmAudit)
+  .addNode("write_files",       writeFiles)
+  .addEdge(START,                "read_files")
+  .addEdge("read_files",         "analyze_structure")
+  .addEdge("analyze_structure",  "extract_stats")
+  .addEdge("extract_stats",      "extract_abilities")
+  .addEdge("extract_abilities",  "extract_resources")
+  .addEdge("extract_resources",  "extract_archetypes")
+  .addEdge("extract_archetypes", "extract_gm_context")
+  .addEdge("extract_gm_context", "cross_reference")
+  .addEdge("cross_reference",    "render_schema")
+  .addEdge("render_schema",      "confirm_schema")
+  .addEdge("confirm_schema",     "design")
+  .addEdge("design",             "confirm_design")
+  .addEdge("confirm_design",     "generate")
+  .addEdge("generate",           "audit")
   .addConditionalEdges("audit", shouldRetry, {
     generate:      "generate",
     confirm_audit: "confirm_audit",
     write_files:   "write_files",
   })
-  .addEdge("confirm_audit",   "write_files")
-  .addEdge("write_files",     END);
+  .addEdge("confirm_audit",      "write_files")
+  .addEdge("write_files",        END);
 
 const checkpointer = new MemorySaver();
 const compiled     = graph.compile({ checkpointer });
