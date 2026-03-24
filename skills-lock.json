@@ -1,0 +1,200 @@
+{
+  "version": 1,
+  "skills": {
+    "adventure-manager": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "2a7b1cbc592d71fe1bab92782a53b2fb01d9d90230003e92fe841442f921af84"
+    },
+    "brainstorming": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "efddfd0efbd0e7b5075c5a66ff91a706ac506c88c7b5ddd7fd45a351cb3fe3af"
+    },
+    "character-generator": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "298a78294fa3193122977d5a12139262ba829156e6cc459faf7f6fb0e6e43a30"
+    },
+    "deep-agents-core": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "8cbf6f61f42b2482472f53a99e23607f16017e1e16ca037409c6c8fcfcbcc395"
+    },
+    "deep-agents-memory": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "b7b0facdff17b6f3ad77019e30a697175389e06ec7260780f49d5b3a1d28ad2a"
+    },
+    "deep-agents-orchestration": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "1570f8d88e1233edc3306d28224604172b016aedba0ced2efa2dd8e38e28ae62"
+    },
+    "dice-roller": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "dd5c9b81747d70e49a3b3f94a1c4193358c25f11164e7b2aef22f7d74b475c0d"
+    },
+    "dispatching-parallel-agents": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "e21044ae7496fc285f1df9ff3fb518a3a20bea6f5216c1f59f4987e12c769a0a"
+    },
+    "equipment-browser": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "b7edeb7772c730e84cce5dde9eeec857f2d4f3910cc9bbc1f6d3ca3f21aed562"
+    },
+    "executing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "2f709d1a2c7564f8ce6a9bb707e7f5451117ba80f8e8e2302662c29bc61246a6"
+    },
+    "finishing-a-development-branch": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "9edba9a38684c060fdc38290f640e1dc0c37de286723ac9be73bacacf7cd6f3d"
+    },
+    "framework-selection": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "0be39cf8d1f315eb2fbb96850312b1a7a6a9d15d38e9bce3a17a1620572b3198"
+    },
+    "image-generator": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "85cfc81eeea013b21816f52959fad40e5dbf8002a1706f7cc48db7b0ab978f22"
+    },
+    "journal-illustrator": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "5f47060891f9a5b6362337273b4344986634a2694ed6ece2af213d36cba4cb5b"
+    },
+    "langchain-dependencies": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "bab5411cdfbdeaa42544c45791d9d3fc18d4cc193f4a3c5e2f6bd567422bffaf"
+    },
+    "langchain-fundamentals": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "ede1b3210a135e2c7eb5ddb51e0aaf3b78fde07cfd9fbe6efaeb4d6c5db60bd2"
+    },
+    "langchain-middleware": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "96f0798a575f61b6677b07cb3b8cf0c5afd6e29d4d5e2e793c8ac07198d82560"
+    },
+    "langchain-rag": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "545c661f6ed9b54cfe078a438052b2742d6122fc022f69db67d1a01aca4c726c"
+    },
+    "langgraph-fundamentals": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "d754005c69632037ca79c4daa8177b03e5a0f17f40cde3b0f532b33a8df88ded"
+    },
+    "langgraph-human-in-the-loop": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "0e81f1ef881b4c82bdcb5bece6309558f9e53681022f8347f869abc403b48637"
+    },
+    "langgraph-persistence": {
+      "source": "langchain-ai/langchain-skills",
+      "sourceType": "github",
+      "computedHash": "fc617bfab9d06826cba1097def5c7775f4522a1dabdd1a0111472f9929b1b914"
+    },
+    "map-generator": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "21c00a9f3404f8d5c724cd215670d584c284db1e086411764e90b79b9ae029bc"
+    },
+    "monster-manual": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "3999ad00d8315636fa478261c13744992c982cabde68cafc32ad7dd0d7338880"
+    },
+    "name-generator": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "52dac70aaccbd7816cafad6dde0efa8f90657787de2bcd7719cb5c3eb4419997"
+    },
+    "name-location-generator": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "95b261c7cea646da64225c39759aa71a4c3855fb1abec80c566263058588034f"
+    },
+    "npc-generator": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "d566c0de48a300748ca8673772c4bc1924fe9a389d3208c34def34433f717877"
+    },
+    "receiving-code-review": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "2760c85d4f4117b0006e7ba755f4bbd61f8f4c185f347999763c97f507274e30"
+    },
+    "requesting-code-review": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "246e65cd72a7e360987d94e6c61564ce6d71c6361d1784d529d70e4cbbe8522d"
+    },
+    "spell-reference": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "f3c6322fe3905e2b0014bdbebec883ca64974c5a1d00c386ff29e4553ebb6797"
+    },
+    "subagent-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "a197f8e5fba5ea59013e1adbaa90dd42db35de8f074feca200c8038de584a83b"
+    },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "72e9ab72627e4fd8ed26a582e82309a98ecdc4f6e1c99418430ac05682c9e91d"
+    },
+    "test-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "126f1ebf6ccd414f42544f6e83d8cc5adb089e1108eaffb7c400701e37eecd9f"
+    },
+    "treasure-generator": {
+      "source": "nicmarti/skills-weaver",
+      "sourceType": "github",
+      "computedHash": "684924ad567af48883395cf1b1f70b68f78e7ca34175653da71952aaa46b8d34"
+    },
+    "using-git-worktrees": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "52bbb4b6e80918e83e92a1514f3b3757712154c2a8a42de24919e48a794c54fc"
+    },
+    "using-superpowers": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "91a4d2ccb9432dfd4d3654f6ebd97875adab301d3d77f84e590169ba397760e3"
+    },
+    "verification-before-completion": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "9b446f0c7fe1cfb560b1d34439523b1a76d5f177290007b2c053a1c749a4a8ba"
+    },
+    "weaver": {
+      "source": "flashingcursor/skill-creator-plugin",
+      "sourceType": "github",
+      "computedHash": "68bbafb4acff5bedfa187b157f13c54cc2441e239db320d8bd90a5ea38ac59f8"
+    },
+    "writing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "70fe626d5970349239e939f311893389563a6338cda40eb0500606dd48aa3afa"
+    },
+    "writing-skills": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "7cd0c064b5a62ffdc9cfff539a7b4d8d4a7792c8f0d544436bea021f08632e7b"
+    }
+  }
+}
