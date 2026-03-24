@@ -195,12 +195,6 @@
       "source": "obra/superpowers",
       "sourceType": "github",
       "computedHash": "7cd0c064b5a62ffdc9cfff539a7b4d8d4a7792c8f0d544436bea021f08632e7b"
-    },
-    "dnd-game-master": {
-      "source": "Sstobo/Claude-Code-Game-Master",
-      "sourceType": "github",
-      "note": "Manually adapted — original repo has no SKILL.md format. CC BY-NC-SA 4.0.",
-      "computedHash": "manual"
     }
   }
 }

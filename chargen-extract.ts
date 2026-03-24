@@ -104,6 +104,54 @@ const ChargenState = Annotation.Root({
 
 type State = typeof ChargenState.State;
 
+// ─── Chunk retrieval ─────────────────────────────────────────────────────────
+// Splits text into overlapping chunks, scores each against hint keywords, and
+// returns only the top-scoring sections — solves the 150k char ceiling by
+// feeding each extraction node only the pages that are actually relevant.
+
+const CHUNK_SIZE    = 6000;  // chars per chunk
+const CHUNK_OVERLAP = 600;   // overlap between adjacent chunks
+const MAX_CHUNKS    = 12;    // max chunks fed to one extraction pass
+
+function selectChunks(text: string, hint: string): string {
+  // Build overlapping chunks
+  const chunks: Array<{ text: string; idx: number }> = [];
+  for (let i = 0; i < text.length; i += CHUNK_SIZE - CHUNK_OVERLAP) {
+    chunks.push({ text: text.slice(i, i + CHUNK_SIZE), idx: chunks.length });
+  }
+
+  // Keywords from the hint (3+ chars, unique)
+  const keywords = [...new Set(
+    hint.toLowerCase().split(/\W+/).filter((w) => w.length >= 3),
+  )];
+
+  if (keywords.length === 0) {
+    // No hint — return first MAX_CHUNKS chunks (beginning of doc)
+    return chunks.slice(0, MAX_CHUNKS).map((c) => c.text).join("\n\n[...]\n\n");
+  }
+
+  // Score each chunk by keyword hit count (weighted: title-line hits count more)
+  const scored = chunks.map((c) => {
+    const lower = c.text.toLowerCase();
+    const lines = lower.split("\n");
+    let score = 0;
+    for (const kw of keywords) {
+      // First line of chunk (likely a section header) counts double
+      if (lines[0]?.includes(kw)) score += 2;
+      if (lower.includes(kw)) score += 1;
+    }
+    return { ...c, score };
+  });
+
+  // Take top MAX_CHUNKS, preserve document order
+  const selected = scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_CHUNKS)
+    .sort((a, b) => a.idx - b.idx);
+
+  return selected.map((c) => c.text).join("\n\n[...]\n\n");
+}
+
 // ─── Model factory ────────────────────────────────────────────────────────────
 
 function createModel(): BaseChatModel {
@@ -245,26 +293,68 @@ The plugin MUST implement IGameSystem (extends IStatSystem) and emit gm:system:r
 
 const GENERATE_SYSTEM = `You are generating TypeScript code for a UrsaMU chargen plugin.
 
-Rules:
-- Use import from "jsr:@ursamu/ursamu" for all engine imports
-- Stat names: lowercase with underscores
+━━ Code rules ━━
+- Import from "jsr:@ursamu/ursamu" for all engine types
+- Stat names: lowercase_with_underscores
 - All DBO collections prefixed with "chargen."
 - Every addCmd has complete help text with Examples section
 - Color codes always end with %cn
-- Early return over nested conditions
-- No function longer than 50 lines
+- Early return over nested conditions; no function longer than 50 lines
 
-Output a JSON object where keys are relative file paths and values are the complete file contents.
+━━ validation.ts — MUST implement these four functions ━━
+
+  checkApproved(char): boolean
+    → true when char.status === "approved"; block all edits
+
+  validateStat(name, value, archetype): true | string
+    → check racial/archetype cap, flat cap from schema; return error string on fail
+
+  validatePool(char): true | string
+    → check char.spentPoints <= resourcePool total from schema
+
+  checkRequired(char): string[]
+    → return list of unset required stats; blocks +chargen/submit if non-empty
+
+━━ game-system.ts — required patterns ━━
+
+  // Stat modifier formula (adapt for any system — D&D-style shown):
+  statModifier: (score: number) => Math.floor((score - 10) / 2),
+
+  // Dice notation support (adapt NdX+M to the game's actual dice system):
+  rollDice: (notation: string): number => {
+    const m = notation.match(/(\d+)d(\d+)([+-]\d+)?/);
+    if (!m) return 0;
+    let total = 0;
+    for (let i = 0; i < +m[1]; i++) total += Math.ceil(Math.random() * +m[2]);
+    return total + (m[3] ? +m[3] : 0);
+  },
+
+  // formatCharacterContext — aggregates all relevant state for GM injection.
+  // Must be plain text, NO MUSH codes, compact for LLM context window:
+  formatCharacterContext: (sheet) => [
+    \`System: <game name>\`,
+    \`Character: \${sheet.name ?? "Unknown"} | Archetype: \${sheet.archetype ?? "—"}\`,
+    \`Stats: \${gameSystem.stats.map(s => \`\${s}=\${sheet[s] ?? 0}\`).join(", ")}\`,
+    \`Resources: \${Object.entries(sheet.pools ?? {}).map(([k,v]) => \`\${k}: \${v}\`).join(", ")}\`,
+    \`Status: HP \${sheet.hp ?? "?"}/ \${sheet.maxHp ?? "?"} | Conditions: \${(sheet.conditions as string[] ?? []).join(", ") || "none"}\`,
+    \`Approved: \${sheet.status === "approved" ? "yes" : "no"}\`,
+  ].join("\\n"),
+
+  // consequence-aware adjudication — include pending consequences in GM hint:
+  adjudicationHint: "<extracted hint from GM context>. Track consequences: future events with trigger conditions that the GM introduces when fiction warrants.",
+
+━━ Output format ━━
+Output a JSON object where keys are relative file paths and values are complete file contents.
 Example: { "index.ts": "...", "commands.ts": "...", ... }
 
-Generate these files:
-- index.ts    (IPlugin + IGameSystem + registerStatSystem + gm:system:register)
-- commands.ts (all addCmd registrations)
-- schema.ts   (DBO type definitions + collection instances)
-- validation.ts (validateStat, validatePool, checkApproved, checkRequired)
-- display.ts  (formatSheet for MUSH + formatCharacterContext for GM)
-- game-system.ts (IGameSystem object literal with all extracted fields)
-- README.md   (commands table, storage, REST routes, install)`;
+Generate these 7 files:
+- index.ts       (IPlugin: registerStatSystem + gm:system:register + player:login hook)
+- commands.ts    (all addCmd: +chargen, +stat, +skill, +ability/add, +ability/remove, +chargen/submit, +chargen/approve, +chargen/reject)
+- schema.ts      (ICharRecord, IReviewRecord types + chargen.chars, chargen.reviews DBO instances)
+- validation.ts  (checkApproved, validateStat, validatePool, checkRequired as above)
+- display.ts     (formatSheet for MUSH terminal + formatCharacterContext for GM)
+- game-system.ts (IGameSystem literal: all extracted fields + statModifier + rollDice + formatCharacterContext)
+- README.md      (commands table, DB collections, REST routes, install, AI GM bridge note)`;
 
 // ─── Nodes ───────────────────────────────────────────────────────────────────
 
@@ -319,12 +409,18 @@ async function analyzeStructure(state: State): Promise<Partial<State>> {
   return { documentStructure: jsonStr, extractionPlan: plan };
 }
 
+function hintFor(plan: string, key: string): string {
+  return plan.split("\n").find((l) => l.startsWith(`${key}:`))?.slice(key.length + 1).trim() ?? "";
+}
+
 async function extractStats(state: State): Promise<Partial<State>> {
   console.log("\n[chargen-extract] Extracting stats & skills...");
-  const hint = state.extractionPlan.split("\n").find((l) => l.startsWith("stats:")) ?? "";
-  const result = await llm(
+  const hint    = hintFor(state.extractionPlan, "stats");
+  const focused = selectChunks(state.textContent, hint);
+  console.log(`  → ${focused.length.toLocaleString()} chars from relevant sections`);
+  const result  = await llm(
     EXTRACT_STATS_SYSTEM,
-    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook text:\n${state.textContent}`,
+    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook sections:\n${focused}`,
   );
   console.log("  ✓ Attributes, skills, derived stats extracted");
   return { exAttributes: result };
@@ -332,10 +428,12 @@ async function extractStats(state: State): Promise<Partial<State>> {
 
 async function extractAbilities(state: State): Promise<Partial<State>> {
   console.log("\n[chargen-extract] Extracting special abilities...");
-  const hint = state.extractionPlan.split("\n").find((l) => l.startsWith("abilities:")) ?? "";
-  const result = await llm(
+  const hint    = hintFor(state.extractionPlan, "abilities");
+  const focused = selectChunks(state.textContent, hint);
+  console.log(`  → ${focused.length.toLocaleString()} chars from relevant sections`);
+  const result  = await llm(
     EXTRACT_ABILITIES_SYSTEM,
-    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook text:\n${state.textContent}`,
+    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook sections:\n${focused}`,
   );
   console.log("  ✓ Powers, qualities, merits extracted");
   return { exAbilities: result };
@@ -343,10 +441,12 @@ async function extractAbilities(state: State): Promise<Partial<State>> {
 
 async function extractResources(state: State): Promise<Partial<State>> {
   console.log("\n[chargen-extract] Extracting resource pools...");
-  const hint = state.extractionPlan.split("\n").find((l) => l.startsWith("resources:")) ?? "";
-  const result = await llm(
+  const hint    = hintFor(state.extractionPlan, "resources");
+  const focused = selectChunks(state.textContent, hint);
+  console.log(`  → ${focused.length.toLocaleString()} chars from relevant sections`);
+  const result  = await llm(
     EXTRACT_RESOURCES_SYSTEM,
-    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook text:\n${state.textContent}`,
+    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook sections:\n${focused}`,
   );
   console.log("  ✓ Budgets, pools, advancement costs extracted");
   return { exResources: result };
@@ -354,10 +454,12 @@ async function extractResources(state: State): Promise<Partial<State>> {
 
 async function extractArchetypes(state: State): Promise<Partial<State>> {
   console.log("\n[chargen-extract] Extracting archetypes...");
-  const hint = state.extractionPlan.split("\n").find((l) => l.startsWith("archetypes:")) ?? "";
-  const result = await llm(
+  const hint    = hintFor(state.extractionPlan, "archetypes");
+  const focused = selectChunks(state.textContent, hint);
+  console.log(`  → ${focused.length.toLocaleString()} chars from relevant sections`);
+  const result  = await llm(
     EXTRACT_ARCHETYPES_SYSTEM,
-    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook text:\n${state.textContent}`,
+    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook sections:\n${focused}`,
   );
   console.log("  ✓ Metatypes, archetypes, playbooks extracted");
   return { exArchetypes: result };
@@ -365,10 +467,12 @@ async function extractArchetypes(state: State): Promise<Partial<State>> {
 
 async function extractGmContext(state: State): Promise<Partial<State>> {
   console.log("\n[chargen-extract] Extracting GM narrative context...");
-  const hint = state.extractionPlan.split("\n").find((l) => l.startsWith("gm_context:")) ?? "";
-  const result = await llm(
+  const hint    = hintFor(state.extractionPlan, "gm_context");
+  const focused = selectChunks(state.textContent, hint);
+  console.log(`  → ${focused.length.toLocaleString()} chars from relevant sections`);
+  const result  = await llm(
     EXTRACT_GM_CONTEXT_SYSTEM,
-    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook text:\n${state.textContent}`,
+    `Game system: ${state.systemName}\nFocus hint: ${hint}\n\nRulebook sections:\n${focused}`,
   );
   console.log("  ✓ Dice system, moves, tone extracted");
   return { exGmContext: result };
